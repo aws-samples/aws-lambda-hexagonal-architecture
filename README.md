@@ -44,10 +44,7 @@ After these changes you are able to test the API retrieving the URL from the API
 
 ## Evolving the project
 
-When we want to evolve the application adding a cache-aside pattern using an ElastiCache cluster for reducing the throughput towards a 3rd party service, we can do it applying some changes to the current architecture.     
-The final architecture will be:
-
-![Hexagonal Architecture with VPC](./hexagonalVPC.png)
+When we want to evolve the application adding a cache-aside pattern using an ElastiCache cluster for reducing the throughput towards a 3rd party service, we can do it applying some changes to the current architecture.    
 
 
 1. in the ```ports/CurrenciesService``` we comment the first import and uncomment the second one. This will use a new adapter called CurrencyConverterWithCache that contains the logic for the cache-aside patter with ElastiCache Redis cluster
