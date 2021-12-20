@@ -6,17 +6,17 @@ const CURRENCIES = ["USD", "CAD", "AUD"]
 const retrieveStockValues = async (stockID) => {
     try{
         const stockValue = await Repository.getStockData(stockID);
-        const currencyList = await Currency.getCurrenciesData(CURRENCIES);
-    
+        const currencyRates = await Currency.getCurrenciesData(CURRENCIES);
+
         const stockWithCurrencies = {
-            stock: stockValue.STOCK_ID,
+            stock: stockValue.stock,
             values: {
-                "EUR": stockValue.VALUE
+                "EUR": stockValue.value
             }
         };
-        
-        for(const currency in currencyList.rates){
-            stockWithCurrencies.values[currency] =  (stockValue.VALUE * currencyList.rates[currency]).toFixed(2)
+
+        for(const currency in currencyRates){
+            stockWithCurrencies.values[currency] =  (stockValue.value * currencyRates[currency]).toFixed(2)
         }
 
         return stockWithCurrencies;

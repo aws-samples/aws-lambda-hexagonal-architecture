@@ -12,22 +12,23 @@ const client = redis.createClient({
 });
 const asyncClient = asyncRedis.decorate(client);
 
+
 const getCurrencies = async (currencies) => {
 
-    try{        
+    try{
         let res = await asyncClient.get("CURRENCIES");
 
         if(res){
             return JSON.parse(res);
         }
-        
+
         const getCurr = await axios.get(`http://api.mysite.com?access_key=${API_KEY}&symbols=${currencies.toString()}`)
-        await asyncClient.set("CURRENCIES", JSON.stringify(getCurr.data), "ex", 20);
-        
-        return getCurr.data
+        await asyncClient.set("CURRENCIES", JSON.stringify(getCurr.data.rates), "ex", 20);
+
+        return getCurr.data.rates
 
     } catch(err) {
-        return err; 
+        return err;
     }
 }
 

@@ -3,8 +3,8 @@ const getCurrencies = require("../adapters/CurrencyConverter");
 
 const getCurrenciesData = async (currencies) => {
     try{
-        const data = await getCurrencies(currencies);
-        return data
+        const rates = await getCurrencies(currencies);
+        return rates // { [currency]: rate }
     } catch(err) {
         return err
     }

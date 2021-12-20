@@ -16,7 +16,10 @@ const getStockValue = async (stockID = "AMZN") => {
 
     try {
         const stockData = await documentClient.get(params).promise()
-        return stockData
+
+        const { STOCK_ID, VALUE } = stockData.Item
+        
+        return { stock: STOCK_ID, value: VALUE }
     }
     catch (err) {
         console.log(err)

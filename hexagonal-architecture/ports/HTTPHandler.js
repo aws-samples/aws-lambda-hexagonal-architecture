@@ -2,8 +2,8 @@ const stock = require("../domains/StocksLogic");
 
 const retrieveStock = async (stockID) => {
     try{
-        const stockWithCurrencies = await stock.retrieveStockValues(stockID)
-        return stockWithCurrencies;
+        const { stock, values } = await stock.retrieveStockValues(stockID)
+        return { stock, values };
     }
     catch(err){
         return err
