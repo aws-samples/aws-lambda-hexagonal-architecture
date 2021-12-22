@@ -7,6 +7,8 @@ Loose coupling can help improve test coverage and create atomic refactoring. Wit
 
 Evolutionary architectures can help achieve agility in your design. In the book [“Building Evolutionary Architectures”](https://learning.oreilly.com/library/view/building-evolutionary-architectures/9781491986356/), this architecture is defined as one that “supports guided, incremental change across multiple dimensions”.
 
+The project is set up to work on eu-west-1, if you want to deploy in another region please change the code accordingly
+
 If you are interested to learn more about this approach, please read the [blog post associated to this code example](https://aws.amazon.com/blogs/compute/developing-evolutionary-architecture-with-aws-lambda).
 
 ## Project
