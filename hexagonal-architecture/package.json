@@ -7,7 +7,7 @@
   "license": "MIT-0",
   "dependencies": {
     "async-redis": "^1.1.7",
-    "aws-sdk": "^2.893.0",
+    "aws-sdk": "^2.1354.0",
     "axios": "^0.21.1",
     "redis": "^3.1.2"
   },
