@@ -1,5 +1,5 @@
-const  { DynamoDBClient } = require( "@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 const DB_TABLE = process.env.DB_TABLE;
 
@@ -19,10 +19,7 @@ const getStockValue = async (stockID = "AMZN") => {
 
     try {
         const stockData = await docClient.send(command);
-        return {
-            id: stockData.Item.STOCK_ID,
-            value: stockData.Item.VALUE
-        }
+        return stockData.Item
     }
     catch (err) {
         console.log(err)

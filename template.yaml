@@ -7,36 +7,7 @@ Globals:
     Timeout: 20
 
 Resources:
-  StocksConverterFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: hexagonal-architecture/
-      Handler: app.lambdaHandler
-      Runtime: nodejs14.x
-      MemorySize: 256
-      # Role: lambdavpc_role_arn_insert_here
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref StocksTable
-      Environment:
-        Variables:
-          DB_TABLE: !Ref StocksTable
-          API_KEY: API_KEY_FOR_CURRENCIES_API
-          # CACHE_URL: aws_elasticache_url_insert_here
-          # CACHE_PORT: aws_elasticache_port_insert_here
-      # VpcConfig:
-      #   SecurityGroupIds:
-      #     - sg-d424b48a
-      #   SubnetIds:
-      #     - subnet-8459bbcf
-      #     - subnet-c2c99598
-      Events:
-        StocksConverter:
-          Type: HttpApi 
-          Properties:
-            ApiId: !Ref StocksGateway
-            Path: /stock/{StockID}
-            Method: get
+#DynamoDB table
   StocksTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -47,6 +18,140 @@ Resources:
       - AttributeName: STOCK_ID
         KeyType: HASH
       BillingMode: PAY_PER_REQUEST
+#network configuration
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Lambda on SAM Security Group"
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 0
+          ToPort: 65535
+          IpProtocol: tcp
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 0
+          ToPort: 65535
+          IpProtocol: tcp
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      MapPublicIpOnLaunch: false
+      CidrBlock: "10.0.0.0/24"
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      MapPublicIpOnLaunch: false
+      CidrBlock: "10.0.1.0/24"
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetA
+      RouteTableId: !Ref RouteTable
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetB
+      RouteTableId: !Ref RouteTable
+#DynamoDB VPC endpoint
+  DDBEndpoint:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - "dynamodb:GetItem"
+              - "dynamodb:DescribeTable"
+            Resource:
+              - "*"
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.dynamodb'
+      RouteTableIds:
+        - !Ref RouteTable
+      VpcId: !Ref Vpc
+  #ElastiCache Redis
+  ElastiCacheSubnetGroup:
+    Type: 'AWS::ElastiCache::SubnetGroup'
+    Properties:
+      Description: Cache Subnet Group
+      SubnetIds:
+        - !Ref SubnetA
+        - !Ref SubnetB
+  ElastiCacheRedisCluster:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      AutoMinorVersionUpgrade: true
+      AtRestEncryptionEnabled: true
+      CacheNodeType: cache.t2.micro
+      CacheSubnetGroupName: !Ref ElastiCacheSubnetGroup
+      Engine: redis
+      NumNodeGroups: 1
+      Port: 6379
+      ReplicasPerNodeGroup: 1
+      ReplicationGroupDescription: cache-aside pattern with Redis
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+
+  #Lambda function
+  StocksConverterFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: ElastiCacheRedisCluster
+    Properties:
+      CodeUri: hexagonal-architecture/
+      Handler: app.lambdaHandler
+      Runtime: nodejs18.x
+      MemorySize: 256
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref StocksTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - 'logs:CreateLogGroup'
+                - 'logs:CreateLogStream'
+                - 'logs:PutLogEvents'
+                - 'ec2:CreateNetworkInterface'
+                - 'ec2:DescribeNetworkInterfaces'
+                - 'ec2:DeleteNetworkInterface'
+                - 'ec2:AssignPrivateIpAddresses'
+                - 'ec2:UnassignPrivateIpAddresses'
+              Resource: '*'
+      Environment:
+        Variables:
+          DB_TABLE: !Ref StocksTable
+          CACHE_URL: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Address
+          CACHE_PORT: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Port
+          CURRENCIES_PATH: "https://o3630.wiremockapi.cloud/currencies"
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroup
+        SubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+      Events:
+        StocksConverter:
+          Type: HttpApi 
+          Properties:
+            ApiId: !Ref StocksGateway
+            Path: /stock/{StockID}
+            Method: get
+#HTTP API Gateway
   StocksGateway:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -56,3 +161,9 @@ Resources:
           - POST
         AllowOrigins:
           - "*"
+
+Outputs:
+  HttpApiUrl:
+    Description: URL of your API endpoint, add stock ID like AMZN
+    Value:
+      Fn::Sub: 'https://${StocksGateway}.execute-api.${AWS::Region}.${AWS::URLSuffix}/stock/'

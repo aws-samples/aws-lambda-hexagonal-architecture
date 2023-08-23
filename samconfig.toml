@@ -8,3 +8,6 @@ s3_prefix = "stock-app"
 region = "eu-west-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+profile = "hexagonal"
+image_repositories = []

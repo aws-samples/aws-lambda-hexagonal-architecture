@@ -6,6 +6,7 @@
   "author": "luca mezzalira",
   "license": "MIT-0",
   "dependencies": {
+    "async-redis": "2.0.0",
     "axios": "^1.4.0",
     "redis": "^4.6.8"
   },

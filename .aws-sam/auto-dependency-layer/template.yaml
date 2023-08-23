@@ -1,0 +1,198 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: hexagonal-arch-sample
+Globals:
+  Function:
+    Timeout: 20
+Resources:
+  StocksTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: STOCK_ID
+        AttributeType: S
+      KeySchema:
+      - AttributeName: STOCK_ID
+        KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Lambda on SAM Security Group
+      VpcId:
+        Ref: Vpc
+      SecurityGroupEgress:
+      - CidrIp: '0.0.0.0/0'
+        FromPort: 0
+        ToPort: 65535
+        IpProtocol: tcp
+      SecurityGroupIngress:
+      - CidrIp: '0.0.0.0/0'
+        FromPort: 0
+        ToPort: 65535
+        IpProtocol: tcp
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: Vpc
+      AvailabilityZone:
+        Fn::Select:
+        - 0
+        - Fn::GetAZs: ''
+      MapPublicIpOnLaunch: false
+      CidrBlock: 10.0.0.0/24
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: Vpc
+      AvailabilityZone:
+        Fn::Select:
+        - 1
+        - Fn::GetAZs: ''
+      MapPublicIpOnLaunch: false
+      CidrBlock: 10.0.1.0/24
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: Vpc
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: SubnetA
+      RouteTableId:
+        Ref: RouteTable
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: SubnetB
+      RouteTableId:
+        Ref: RouteTable
+  DDBEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal: '*'
+          Action:
+          - dynamodb:GetItem
+          - dynamodb:DescribeTable
+          Resource:
+          - '*'
+      ServiceName:
+        Fn::Sub: com.amazonaws.${AWS::Region}.dynamodb
+      RouteTableIds:
+      - Ref: RouteTable
+      VpcId:
+        Ref: Vpc
+  ElastiCacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Cache Subnet Group
+      SubnetIds:
+      - Ref: SubnetA
+      - Ref: SubnetB
+  ElastiCacheRedisCluster:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      AutoMinorVersionUpgrade: true
+      AtRestEncryptionEnabled: true
+      CacheNodeType: cache.t2.micro
+      CacheSubnetGroupName:
+        Ref: ElastiCacheSubnetGroup
+      Engine: redis
+      NumNodeGroups: 1
+      Port: 6379
+      ReplicasPerNodeGroup: 1
+      ReplicationGroupDescription: cache-aside pattern with Redis
+      SecurityGroupIds:
+      - Ref: SecurityGroup
+  StocksConverterFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: ElastiCacheRedisCluster
+    Properties:
+      CodeUri: StocksConverterFunction
+      Handler: app.lambdaHandler
+      Runtime: nodejs18.x
+      MemorySize: 256
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName:
+            Ref: StocksTable
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          - ec2:CreateNetworkInterface
+          - ec2:DescribeNetworkInterfaces
+          - ec2:DeleteNetworkInterface
+          - ec2:AssignPrivateIpAddresses
+          - ec2:UnassignPrivateIpAddresses
+          Resource: '*'
+      Environment:
+        Variables:
+          DB_TABLE:
+            Ref: StocksTable
+          CACHE_URL:
+            Fn::GetAtt:
+            - ElastiCacheRedisCluster
+            - PrimaryEndPoint.Address
+          CACHE_PORT:
+            Fn::GetAtt:
+            - ElastiCacheRedisCluster
+            - PrimaryEndPoint.Port
+          CURRENCIES_PATH: https://o3630.wiremockapi.cloud/currencies
+      VpcConfig:
+        SecurityGroupIds:
+        - Ref: SecurityGroup
+        SubnetIds:
+        - Ref: SubnetA
+        - Ref: SubnetB
+      Events:
+        StocksConverter:
+          Type: HttpApi
+          Properties:
+            ApiId:
+              Ref: StocksGateway
+            Path: /stock/{StockID}
+            Method: get
+      Layers:
+      - Fn::GetAtt:
+        - AwsSamAutoDependencyLayerNestedStack
+        - Outputs.StocksConverterFunctione74c5016DepLayer
+    Metadata:
+      SamResourceId: StocksConverterFunction
+  StocksGateway:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowMethods:
+        - GET
+        - POST
+        AllowOrigins:
+        - '*'
+  AwsSamAutoDependencyLayerNestedStack:
+    DeletionPolicy: Delete
+    Metadata:
+      CreatedBy: AWS SAM CLI sync command
+    Properties:
+      TemplateURL: /Users/lmezza/Documents/hexagonal architecture/samples/aws-lambda-hexagonal-architecture/.aws-sam/auto-dependency-layer/adl_nested_template.yaml
+    Type: AWS::CloudFormation::Stack
+Outputs:
+  HttpApiUrl:
+    Description: URL of your API endpoint, add stock ID like AMZN
+    Value:
+      Fn::Sub: https://${StocksGateway}.execute-api.${AWS::Region}.${AWS::URLSuffix}/stock/
