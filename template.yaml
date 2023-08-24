@@ -7,7 +7,7 @@ Globals:
     Timeout: 20
 
 Resources:
-#DynamoDB table
+  #DynamoDB table
   StocksTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -18,23 +18,23 @@ Resources:
       - AttributeName: STOCK_ID
         KeyType: HASH
       BillingMode: PAY_PER_REQUEST
-#network configuration
+  #Network configuration
   Vpc:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: "10.0.0.0/16"
+      CidrBlock: '10.0.0.0/16'
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Lambda on SAM Security Group"
+      GroupDescription: 'Lambda Security Group'
       VpcId: !Ref Vpc
       SecurityGroupEgress:
-        - CidrIp: "0.0.0.0/0"
+        - CidrIp: '0.0.0.0/0'
           FromPort: 0
           ToPort: 65535
           IpProtocol: tcp
       SecurityGroupIngress:
-        - CidrIp: "0.0.0.0/0"
+        - CidrIp: '0.0.0.0/0'
           FromPort: 0
           ToPort: 65535
           IpProtocol: tcp
@@ -44,29 +44,83 @@ Resources:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [ 0, !GetAZs '' ]
       MapPublicIpOnLaunch: false
-      CidrBlock: "10.0.0.0/24"
+      CidrBlock: '10.0.0.0/24'
   SubnetB:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref Vpc
       AvailabilityZone: !Select [ 1, !GetAZs '' ]
       MapPublicIpOnLaunch: false
-      CidrBlock: "10.0.1.0/24"
+      CidrBlock: '10.0.1.0/24'
+  SubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      MapPublicIpOnLaunch: false
+      CidrBlock: '10.0.2.0/24'
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref Vpc
-  PublicSubnetARouteTableAssociation:
+
+  PublicSubnetCRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
+      SubnetId: !Ref SubnetC
+      RouteTableId: !Ref RouteTable
+
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+
+  VPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+    
+  InternetRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+
+  EIP:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: 'vpc'
+
+  Nat:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt EIP.AllocationId
+      SubnetId: !Ref SubnetC
+
+  NatRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref Vpc
+
+  NatRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref Nat
+      RouteTableId: !Ref NatRouteTable
+
+  SubnetARouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref NatRouteTable
       SubnetId: !Ref SubnetA
-      RouteTableId: !Ref RouteTable
-  PublicSubnetBRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+
+  SubnetBRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
+      RouteTableId: !Ref NatRouteTable
       SubnetId: !Ref SubnetB
-      RouteTableId: !Ref RouteTable
-#DynamoDB VPC endpoint
+
   DDBEndpoint:
     Type: 'AWS::EC2::VPCEndpoint'
     Properties:
@@ -76,14 +130,34 @@ Resources:
           - Effect: Allow
             Principal: '*'
             Action:
-              - "dynamodb:GetItem"
-              - "dynamodb:DescribeTable"
+              - 'dynamodb:GetItem'
+              - 'dynamodb:DescribeTable'
             Resource:
-              - "*"
+              - '*'
       ServiceName: !Sub 'com.amazonaws.${AWS::Region}.dynamodb'
       RouteTableIds:
-        - !Ref RouteTable
+        - !Ref NatRouteTable
       VpcId: !Ref Vpc
+      
+  InstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: 'Security Group for outbound traffic'
+      GroupDescription: 'Lambda Traffic'
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+      - IpProtocol: '-1'
+        CidrIp: '0.0.0.0/0'
+
+  InstanceSecurityGroupIngress:
+    Type: 'AWS::EC2::SecurityGroupIngress'
+    DependsOn: 'InstanceSecurityGroup'
+    Properties:
+      GroupId: !Ref InstanceSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId: !Ref InstanceSecurityGroup
   #ElastiCache Redis
   ElastiCacheSubnetGroup:
     Type: 'AWS::ElastiCache::SubnetGroup'
@@ -105,7 +179,7 @@ Resources:
       ReplicasPerNodeGroup: 1
       ReplicationGroupDescription: cache-aside pattern with Redis
       SecurityGroupIds:
-        - !Ref SecurityGroup
+        - !Ref InstanceSecurityGroup
 
   #Lambda function
   StocksConverterFunction:
@@ -137,10 +211,11 @@ Resources:
           DB_TABLE: !Ref StocksTable
           CACHE_URL: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Address
           CACHE_PORT: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Port
-          CURRENCIES_PATH: "https://o3630.wiremockapi.cloud/currencies"
+          # change with an URL
+          CURRENCIES_PATH: 'https://o3630.wiremockapi.cloud/currencies'
       VpcConfig:
         SecurityGroupIds:
-          - !Ref SecurityGroup
+          - !Ref InstanceSecurityGroup
         SubnetIds:
           - !Ref SubnetA
           - !Ref SubnetB
@@ -160,7 +235,7 @@ Resources:
           - GET
           - POST
         AllowOrigins:
-          - "*"
+          - '*'
 
 Outputs:
   HttpApiUrl:

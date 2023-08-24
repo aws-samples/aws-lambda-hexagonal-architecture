@@ -22,7 +22,7 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Lambda on SAM Security Group
+      GroupDescription: Lambda Security Group
       VpcId:
         Ref: Vpc
       SecurityGroupEgress:
@@ -57,25 +57,86 @@ Resources:
         - Fn::GetAZs: ''
       MapPublicIpOnLaunch: false
       CidrBlock: 10.0.1.0/24
+  SubnetC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: Vpc
+      AvailabilityZone:
+        Fn::Select:
+        - 2
+        - Fn::GetAZs: ''
+      MapPublicIpOnLaunch: false
+      CidrBlock: 10.0.2.0/24
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId:
         Ref: Vpc
-  PublicSubnetARouteTableAssociation:
+  PublicSubnetCRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
+      SubnetId:
+        Ref: SubnetC
+      RouteTableId:
+        Ref: RouteTable
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: Vpc
+      InternetGatewayId:
+        Ref: InternetGateway
+  InternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId:
+        Ref: InternetGateway
+      RouteTableId:
+        Ref: RouteTable
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  Nat:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - EIP
+        - AllocationId
+      SubnetId:
+        Ref: SubnetC
+  NatRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: Vpc
+  NatRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId:
+        Ref: Nat
+      RouteTableId:
+        Ref: NatRouteTable
+  SubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: NatRouteTable
       SubnetId:
         Ref: SubnetA
-      RouteTableId:
-        Ref: RouteTable
-  PublicSubnetBRouteTableAssociation:
+  SubnetBRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
+      RouteTableId:
+        Ref: NatRouteTable
       SubnetId:
         Ref: SubnetB
-      RouteTableId:
-        Ref: RouteTable
   DDBEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -92,9 +153,30 @@ Resources:
       ServiceName:
         Fn::Sub: com.amazonaws.${AWS::Region}.dynamodb
       RouteTableIds:
-      - Ref: RouteTable
+      - Ref: NatRouteTable
       VpcId:
         Ref: Vpc
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: Security Group for outbound traffic
+      GroupDescription: Lambda Traffic
+      VpcId:
+        Ref: Vpc
+      SecurityGroupEgress:
+      - IpProtocol: '-1'
+        CidrIp: '0.0.0.0/0'
+  InstanceSecurityGroupIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    DependsOn: InstanceSecurityGroup
+    Properties:
+      GroupId:
+        Ref: InstanceSecurityGroup
+      IpProtocol: tcp
+      FromPort: 0
+      ToPort: 65535
+      SourceSecurityGroupId:
+        Ref: InstanceSecurityGroup
   ElastiCacheSubnetGroup:
     Type: AWS::ElastiCache::SubnetGroup
     Properties:
@@ -116,7 +198,7 @@ Resources:
       ReplicasPerNodeGroup: 1
       ReplicationGroupDescription: cache-aside pattern with Redis
       SecurityGroupIds:
-      - Ref: SecurityGroup
+      - Ref: InstanceSecurityGroup
   StocksConverterFunction:
     Type: AWS::Serverless::Function
     DependsOn: ElastiCacheRedisCluster
@@ -157,7 +239,7 @@ Resources:
           CURRENCIES_PATH: https://o3630.wiremockapi.cloud/currencies
       VpcConfig:
         SecurityGroupIds:
-        - Ref: SecurityGroup
+        - Ref: InstanceSecurityGroup
         SubnetIds:
         - Ref: SubnetA
         - Ref: SubnetB

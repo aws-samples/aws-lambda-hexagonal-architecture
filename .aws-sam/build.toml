@@ -8,6 +8,5 @@ handler = "app.lambdaHandler"
 manifest_hash = "ece1a054652b5c4f831e2e973c70b258"
 packagetype = "Zip"
 functions = ["StocksConverterFunction"]
-source_hash = ""
 
 [layer_build_definitions]
