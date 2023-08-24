@@ -28,6 +28,21 @@ In order to run the project in your AWS account, you have to follow these steps:
 - __STOCK_ID__: AMZN
 - __VALUE__: 1234.56
 
+5. in the ```template.yaml``` add the URL for an API to find the live value of the currencies, it can be as simple as a mock API or a service that provides the live values such as [fixer](https://fixer.io/). Independently from the service you want to use, remember the payload response should be structured similar to the following snippet:
+
+```json
+{
+  "base": "USD",
+  "date": "2023-08-22",
+  "rates": {
+     "CAD": 1.260046,
+     "CHF": 0.933058,
+     "EUR": 0.806942,
+     "GBP": 0.719154
+  }
+}
+```
+
 After these changes you are able to test the API retrieving the URL from the API gateway console and appending ```/stock/AMZN```
 
 ## Evolving the project
@@ -41,10 +56,6 @@ const getCurrencies = require("../adapters/CurrencyConverterWithCache");
 ```
 
 Thanks to hexagonal architecture we were able to atomically change an adapter and a port without changing anything else in the code base.
-
-
-
-5. follow [this tutorial](https://aws.amazon.com/premiumsupport/knowledge-center/internet-access-lambda-function/) for providing internet access to the Lambda. This is needed for consuming the API of the third party service in the diagram
 
 ## Contributing
 
