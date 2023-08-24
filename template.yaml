@@ -211,8 +211,8 @@ Resources:
           DB_TABLE: !Ref StocksTable
           CACHE_URL: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Address
           CACHE_PORT: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Port
-          # change with an URL
-          CURRENCIES_PATH: 'https://o3630.wiremockapi.cloud/currencies'
+          # change with a mock API URL or an 3rd Party API
+          CURRENCIES_PATH: 'https://www.myAPI.com'
       VpcConfig:
         SecurityGroupIds:
           - !Ref InstanceSecurityGroup

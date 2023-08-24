@@ -236,7 +236,7 @@ Resources:
             Fn::GetAtt:
             - ElastiCacheRedisCluster
             - PrimaryEndPoint.Port
-          CURRENCIES_PATH: https://o3630.wiremockapi.cloud/currencies
+          CURRENCIES_PATH: https://www.myAPI.com
       VpcConfig:
         SecurityGroupIds:
         - Ref: InstanceSecurityGroup

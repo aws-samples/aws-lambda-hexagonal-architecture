@@ -2,7 +2,7 @@
 
 [sync_state]
 dependency_layer = true
-latest_infra_sync_time = "2023-08-24T09:05:49.622826"
+latest_infra_sync_time = "2023-08-24T09:14:04.517334"
 
 [resource_sync_states]
 [resource_sync_states."AutoDependencyLayerParentSyncFlow:StocksConverterFunction"]
