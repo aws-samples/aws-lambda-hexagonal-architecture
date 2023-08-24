@@ -13,8 +13,7 @@ client.on('error', (err) => console.log('Redis Cluster Error', err));
 
 const getCurrencies = async () => {
     
-    try{        
-        
+    try{
         if(!client.isOpen)
             await client.connect();
 
@@ -25,7 +24,13 @@ const getCurrencies = async () => {
         }
         
         const getCurr = await axios.get(`${CURRENCIES_BASE_PATH}/currencies`)
-        await client.set("CURRENCIES", JSON.stringify(getCurr.data), "ex", 20);
+        await client.set(
+            "CURRENCIES",
+            JSON.stringify(getCurr.data),
+            {
+                EX: 10,
+                NX: true
+            });
         
         return getCurr.data
 

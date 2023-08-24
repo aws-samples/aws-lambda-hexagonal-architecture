@@ -236,7 +236,6 @@ Resources:
             Fn::GetAtt:
             - ElastiCacheRedisCluster
             - PrimaryEndPoint.Port
-          CURRENCIES_PATH: https://www.myAPI.com
       VpcConfig:
         SecurityGroupIds:
         - Ref: InstanceSecurityGroup

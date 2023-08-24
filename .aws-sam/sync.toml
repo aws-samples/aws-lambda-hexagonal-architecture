@@ -2,12 +2,12 @@
 
 [sync_state]
 dependency_layer = true
-latest_infra_sync_time = "2023-08-24T09:14:04.517334"
+latest_infra_sync_time = "2023-08-24T10:10:27.292012"
 
 [resource_sync_states]
 [resource_sync_states."AutoDependencyLayerParentSyncFlow:StocksConverterFunction"]
-hash = "8cb270c92e3035cb1021b8e09afcfe9fa7f1337aab1c2723288195e34b497857"
-sync_time = "2023-08-23T21:30:29.511251"
+hash = "a286583b9576316d62699e9aec0aa0e9f7d6b6caeb89d6b69d70b85107e84edf"
+sync_time = "2023-08-24T10:09:28.751029"
 
 [resource_sync_states."AutoDependencyLayerSyncFlow:StocksConverterFunctione74c5016DepLayer"]
 hash = "f5102e9e539ce6e990e240eeab62558851847e941253a79d5f3a63d1c6178049"

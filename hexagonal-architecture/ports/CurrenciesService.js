@@ -1,5 +1,5 @@
-// const getCurrencies = require("../adapters/CurrencyConverter");
-const getCurrencies = require("../adapters/CurrencyConverterWithCache");
+const getCurrencies = require("../adapters/CurrencyConverter");
+// const getCurrencies = require("../adapters/CurrencyConverterWithCache");
 
 const getCurrenciesData = async () => {
     try{

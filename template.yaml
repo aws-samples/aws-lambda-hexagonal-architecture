@@ -23,6 +23,7 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: '10.0.0.0/16'
+      
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -59,6 +60,7 @@ Resources:
       AvailabilityZone: !Select [ 2, !GetAZs '' ]
       MapPublicIpOnLaunch: false
       CidrBlock: '10.0.2.0/24'
+      
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -212,7 +214,7 @@ Resources:
           CACHE_URL: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Address
           CACHE_PORT: !GetAtt ElastiCacheRedisCluster.PrimaryEndPoint.Port
           # change with a mock API URL or an 3rd Party API
-          CURRENCIES_PATH: 'https://www.myAPI.com'
+          # CURRENCIES_PATH: 'https://www.myAPI.com'
       VpcConfig:
         SecurityGroupIds:
           - !Ref InstanceSecurityGroup
