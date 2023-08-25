@@ -1,12 +1,11 @@
 const axios = require("axios")
 
-const API_KEY = process.env.API_KEY
+const CURRENCIES_BASE_PATH = process.env.CURRENCIES_PATH
 
-const getCurrencies = async (currencies) => {
+const getCurrencies = async () => {
     try{   
-    // replace with  URL from the service   
-        const res = await axios.get(`http://api.mysite.com?access_key=${API_KEY}&symbols=${currencies.toString()}`)
-        return res.data
+        const getCurr = await axios.get(`${CURRENCIES_BASE_PATH}/currencies`)
+        return getCurr.data
     } catch(err) {
         return err; 
     }

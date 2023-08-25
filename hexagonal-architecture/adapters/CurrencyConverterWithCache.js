@@ -1,28 +1,36 @@
 const axios = require("axios")
 const redis = require("redis");
-const asyncRedis = require("async-redis");
 
-const API_KEY = process.env.API_KEY
 const REDIS_URL = process.env.CACHE_URL
 const REDIS_PORT = process.env.CACHE_PORT
+const CURRENCIES_BASE_PATH = process.env.CURRENCIES_PATH
 
 const client = redis.createClient({
-    host: REDIS_URL,
-    port: REDIS_PORT
+        url: `redis://${REDIS_URL}:${REDIS_PORT}`
 });
-const asyncClient = asyncRedis.decorate(client);
 
-const getCurrencies = async (currencies) => {
+client.on('error', (err) => console.log('Redis Cluster Error', err));
 
-    try{        
-        let res = await asyncClient.get("CURRENCIES");
+const getCurrencies = async () => {
+    
+    try{
+        if(!client.isOpen)
+            await client.connect();
+
+        let res = await client.get("CURRENCIES");
 
         if(res){
             return JSON.parse(res);
         }
         
-        const getCurr = await axios.get(`http://api.mysite.com?access_key=${API_KEY}&symbols=${currencies.toString()}`)
-        await asyncClient.set("CURRENCIES", JSON.stringify(getCurr.data), "ex", 20);
+        const getCurr = await axios.get(`${CURRENCIES_BASE_PATH}/currencies`)
+        await client.set(
+            "CURRENCIES",
+            JSON.stringify(getCurr.data),
+            {
+                EX: 10,
+                NX: true
+            });
         
         return getCurr.data
 

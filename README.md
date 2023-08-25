@@ -17,124 +17,45 @@ The folder structure represents the three key elements that characterizes the fi
 
 In order to run the project in your AWS account, you have to follow these steps:
 
-1. We need a 3rd party service to retrieve real-time currencies value for this example, you can use a service like [fixer.io](https://fixer.io/), Create a free account and get the API Key used for consume the API
+1. Download [AWS SAM](https://aws.amazon.com/serverless/sam/)
 
-2. Download [AWS SAM](https://aws.amazon.com/serverless/sam/) and change the API_KEY property in the ```template.yaml``` file (present in the root folder) with the Fixer.io API key
+2. Build the project with the command ```sam build```
 
-3. Then in the ```adapters/CurrencyConverter```, you have to replace the basepath with the URL provided by the service this line of code:
+3. Deploy the project in your account ```sam deploy --guided```
 
-from this:
-```
-const res = await axios.get(`http://api.mysite.com?access_key=${API_KEY}&symbols=${currencies.toString()}`)
-```
-
-to this:
-```
-const res = await axios.get(`http://data.fixer.io/api/latest?access_key=${API_KEY}&symbols=${currencies.toString()}`)
-```
-
-4. Build the project with the command ```sam build```
-
-5. Deploy the project in your account ```sam deploy --guided```
-
-6. Go to DynamoDB console, add an item to the stock table:
+4. Go to DynamoDB console, add an item to the stock table:
 
 - __STOCK_ID__: AMZN
-- __VALUE__: 3432.97
+- __VALUE__: 1234.56
+
+5. in the ```template.yaml``` add the URL for an API to find the live value of the currencies, it can be as simple as a mock API or a service that provides the live values such as [fixer](https://fixer.io/). Independently from the service you want to use, remember the payload response should be structured similar to the following snippet:
+
+```json
+{
+  "base": "USD",
+  "date": "2023-08-22",
+  "rates": {
+     "CAD": 1.260046,
+     "CHF": 0.933058,
+     "EUR": 0.806942,
+     "GBP": 0.719154
+  }
+}
+```
 
 After these changes you are able to test the API retrieving the URL from the API gateway console and appending ```/stock/AMZN```
 
 ## Evolving the project
 
 When we want to evolve the application adding a cache-aside pattern using an ElastiCache cluster for reducing the throughput towards a 3rd party service, we can do it applying some changes to the current architecture.    
-
-
-1. in the ```ports/CurrenciesService``` we comment the first import and uncomment the second one. This will use a new adapter called CurrencyConverterWithCache that contains the logic for the cache-aside patter with ElastiCache Redis cluster
+If you deployed successfully the infrastructure in the previous step, there is only a thing to change. In the ```ports/CurrenciesService``` we comment the first import and uncomment the second one. This will use a new adapter called CurrencyConverterWithCache that contains the logic for the cache-aside pattern with ElastiCache Redis cluster
 
 ```
 //const getCurrencies = require("../adapters/CurrencyConverter");
 const getCurrencies = require("../adapters/CurrencyConverterWithCache");
 ```
-Change the API URL in the ```adapters/CurrencyConverterWithCache``` in this way:
 
-```
-const res = await axios.get(`http://api.mysite.com?access_key=${API_KEY}&symbols=${currencies.toString()}`)
-```
-
-to this:
-```
-const res = await axios.get(`http://data.fixer.io/api/latest?access_key=${API_KEY}&symbols=${currencies.toString()}`)
-```
-
-2. create a IAM Role for the Lambda, with these two policies:
-
-![IAM role policies](./policies.png)
-
-3. create a ElastiCache Cluster with Redis associated to the default VPC and with the basic configuration (_2 nodes with t3.micro_)
-
-4. create a VPC endpoint for allowing the Lambda to access DynamoDB
-
-5. follow [this tutorial](https://aws.amazon.com/premiumsupport/knowledge-center/internet-access-lambda-function/) for providing internet access to the Lambda. This is needed for consuming the API of the third party service in the diagram
-
-6. in the ```template.yaml``` file, replace the Resources parameter with the following one:
-
-```
-Resources:
-  StocksConverterFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      CodeUri: hexagonal-architecture/
-      Handler: app.lambdaHandler
-      Runtime: nodejs14.x
-      MemorySize: 256
-      Role: lambdavpc_role_arn_insert_here
-      Environment:
-        Variables:
-          DB_TABLE: !Ref StocksTable
-          API_KEY: API_KEY_FOR_CURRENCIES_API
-          CACHE_URL: aws_elasticache_url_insert_here
-          CACHE_PORT: aws_elasticache_port_insert_here
-      VpcConfig:
-        SecurityGroupIds:
-          - sg-xxxxxx
-        SubnetIds:
-          - subnet-xxxxxxx
-          - subnet-xxxxxxx
-      Events:
-        StocksConverter:
-          Type: HttpApi 
-          Properties:
-            ApiId: !Ref StocksGateway
-            Path: /stock/{StockID}
-            Method: get
-  StocksTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      AttributeDefinitions:
-      - AttributeName: STOCK_ID
-        AttributeType: S
-      KeySchema:
-      - AttributeName: STOCK_ID
-        KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-  StocksGateway:
-    Type: AWS::Serverless::HttpApi
-    Properties:
-      CorsConfiguration:
-        AllowMethods:
-          - GET
-          - POST
-        AllowOrigins:
-          - "*"
-```
-
-7. Modify the following parameters in the ```template.yaml``` file:
-
-- __Role__: insert the role name you have created in step 2
-- __CACHE_URL and CACHE_PORT__: add the URL and the port of the Redis cluster
-- __VpcConfig__: add the security group for accessing ElastiCache and the 2 subnets of your VPC
-
-After these changes the architecture is slightly different from the basic example, thanks to hexagonal architecture we were able to atomically change an adapter and a port without changing anything else in the code base.
+Thanks to hexagonal architecture we were able to atomically change an adapter and a port without changing anything else in the code base.
 
 ## Contributing
 

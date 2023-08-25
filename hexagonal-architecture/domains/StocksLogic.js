@@ -1,22 +1,20 @@
 const Currency = require("../ports/CurrenciesService");
 const Repository = require("../ports/Repository");
 
-const CURRENCIES = ["USD", "CAD", "AUD"]
-
-const retrieveStockValues = async (stockID) => {
+const getStockWithCurrencies = async (stockID) => {
     try{
-        const stockValue = await Repository.getStockData(stockID);
-        const currencyList = await Currency.getCurrenciesData(CURRENCIES);
-    
+        const stock = await Repository.getStockData(stockID);
+        const currencyList = await Currency.getCurrenciesData();
+
         const stockWithCurrencies = {
-            stock: stockValue.STOCK_ID,
+            stock: stock.id,
             values: {
-                "EUR": stockValue.VALUE
+                "USD": stock.value
             }
         };
-        
+
         for(const currency in currencyList.rates){
-            stockWithCurrencies.values[currency] =  (stockValue.VALUE * currencyList.rates[currency]).toFixed(2)
+            stockWithCurrencies.values[currency] =  (stock.value * currencyList.rates[currency]).toFixed(2)
         }
 
         return stockWithCurrencies;
@@ -27,5 +25,5 @@ const retrieveStockValues = async (stockID) => {
 }
 
 module.exports = {
-    retrieveStockValues
-}
+    getStockWithCurrencies
+};

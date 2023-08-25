@@ -1,12 +1,13 @@
-const AWS = require("aws-sdk");
-AWS.config.update({
-    region: "eu-west-1"
-});
-const documentClient = new AWS.DynamoDB.DocumentClient();
+const  { DynamoDBClient } = require( "@aws-sdk/client-dynamodb");
+const { DynamoDBDocumentClient, GetCommand } = require("@aws-sdk/lib-dynamodb");
 
 const DB_TABLE = process.env.DB_TABLE;
 
+const client = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(client);
+
 const getStockValue = async (stockID = "AMZN") => {
+
     let params = {
         TableName : DB_TABLE,
         Key:{
@@ -14,14 +15,20 @@ const getStockValue = async (stockID = "AMZN") => {
         }
     }
 
+    const command = new GetCommand(params);
+
     try {
-        const stockData = await documentClient.get(params).promise()
-        return stockData
+        const stockData = await docClient.send(command);
+        return {
+            id: stockData.Item.STOCK_ID,
+            value: stockData.Item.VALUE
+        }
     }
     catch (err) {
         console.log(err)
         return err
     }
+
 }
 
 module.exports = getStockValue;
