@@ -12,7 +12,7 @@ The project is set up to work on eu-west-1, if you want to deploy in another reg
 If you are interested to learn more about this approach, please read the [blog post associated to this code example](https://aws.amazon.com/blogs/compute/developing-evolutionary-architecture-with-aws-lambda).
 
 ## Project
-This example provides an idea on how to implement a basic hexagonal architecture with [AWS Lambda](https://aws.amazon.com/lambda/).    
+This example provides an idea on how to implement a hexagonal architecture with [AWS Lambda](https://aws.amazon.com/lambda/) using Node.js.    
 The folder structure represents the three key elements that characterizes the first implementation of an hexagonal architecture: ports, adapters and domain logic.
 
 In order to run the project in your AWS account, you have to follow these steps:
@@ -47,7 +47,8 @@ After these changes you are able to test the API retrieving the URL from the API
 
 ## Evolving the project
 
-When we want to evolve the application adding a cache-aside pattern using an ElastiCache cluster for reducing the throughput towards a 3rd party service, we can do it applying some changes to the current architecture.    
+When we want to evolve the application adding a cache-aside pattern using an ElastiCache cluster for reducing the throughput towards a 3rd party service, we can do it applying some changes to the current architecture.   
+You can also watch [a presentation]((https://youtu.be/kRFg6fkVChQ?si=5ZazsmXmKvspQZp9)) where I describe the evolutionary nature more in depth.     
 If you deployed successfully the infrastructure in the previous step, there is only a thing to change. In the ```ports/CurrenciesService``` we comment the first import and uncomment the second one. This will use a new adapter called CurrencyConverterWithCache that contains the logic for the cache-aside pattern with ElastiCache Redis cluster
 
 ```
